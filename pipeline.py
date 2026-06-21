@@ -21,18 +21,29 @@ logger = logging.getLogger(__name__)
 # =====================================================
 load_dotenv()  # loads .env file when running locally
 
-SUPABASE_URI = os.getenv("SUPABASE_URI")
-EVENTS_URL   = os.getenv("EVENTS_URL")
+DB_HOST     = os.getenv("DB_HOST")
+DB_PORT     = os.getenv("DB_PORT", "5432")
+DB_NAME     = os.getenv("DB_NAME")
+DB_USER     = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+EVENTS_URL  = os.getenv("EVENTS_URL")
 
-if not SUPABASE_URI or not EVENTS_URL:
-    logger.error("Missing environment variables: SUPABASE_URI and/or EVENTS_URL")
+if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, EVENTS_URL]):
+    logger.error("Missing environment variables")
     exit(1)
 
 # =====================================================
 # 📌 2. SUPABASE CONNECTION
 # =====================================================
 try:
-    conn   = psycopg2.connect(SUPABASE_URI)
+    conn = psycopg2.connect(
+    host=DB_HOST,
+    port=DB_PORT,
+    dbname=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    sslmode='require'
+)
     cursor = conn.cursor()
     logger.info("Database connection established.")
 
