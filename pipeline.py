@@ -3,7 +3,7 @@ from psycopg2.extras import execute_batch
 import requests
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 # =====================================================
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # =====================================================
 # 📌 1. LOAD CREDENTIALS FROM ENVIRONMENT
 # =====================================================
-load_dotenv()  # loads .env file when running locally
+load_dotenv()
 
 DB_HOST     = os.getenv("DB_HOST")
 DB_PORT     = os.getenv("DB_PORT", "5432")
@@ -32,18 +32,21 @@ if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, EVENTS_URL]):
     logger.error("Missing environment variables")
     exit(1)
 
+# Colombia timezone (UTC-5)
+COLOMBIA_TZ = timezone(timedelta(hours=-5))
+
 # =====================================================
 # 📌 2. SUPABASE CONNECTION
 # =====================================================
 try:
     conn = psycopg2.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    sslmode='require'
-)
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        sslmode='require'
+    )
     cursor = conn.cursor()
     logger.info("Database connection established.")
 
@@ -83,16 +86,19 @@ try:
 
                 usuario = evento["object"]["user"]["username"]
                 tokens  = evento["object"]["tip"]["tokens"]
-                hora    = datetime.now()
 
-                lote_datos.append((evento_id, usuario, tokens, hora))
+                # Use Colombia time (UTC-5)
+                hora  = datetime.now(COLOMBIA_TZ)
+                fecha = hora.date()
+
+                lote_datos.append((evento_id, usuario, tokens, hora, fecha))
                 logger.info(f"Tip received — {usuario}: {tokens} tokens")
 
         # Batch insert: one commit per poll (efficient)
         if lote_datos:
             execute_batch(
                 cursor,
-                "INSERT INTO tips_events (event_id, username, tokens, hour) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO tips_events (event_id, username, tokens, hour, fecha) VALUES (%s, %s, %s, %s, %s)",
                 lote_datos
             )
             conn.commit()
