@@ -87,8 +87,8 @@ try:
                 usuario = evento["object"]["user"]["username"]
                 tokens  = evento["object"]["tip"]["tokens"]
 
-                # Use Colombia time (UTC-5)
-                hora  = datetime.now(COLOMBIA_TZ)
+                timestamp_ms = int(evento_id.split("-")[0])
+                hora  = datetime.fromtimestamp(timestamp_ms / 1000, tz=COLOMBIA_TZ)
                 fecha = hora.date()
 
                 lote_datos.append((evento_id, usuario, tokens, hora, fecha))
