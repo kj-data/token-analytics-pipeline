@@ -104,10 +104,36 @@ try:
             conn.commit()
             logger.info(f"Batch of {len(lote_datos)} event(s) saved to Supabase.")
 
-        # Follow pagination
-        next_url    = dict_actual["nextUrl"]
-        response    = requests.get(next_url, timeout=30)
-        dict_actual = response.json()
+        # ── Paginación con manejo de errores ──
+        try:
+            next_url = dict_actual.get("nextUrl")
+    
+            if not next_url:
+                logger.warning("No nextUrl found, restarting from initial URL.")
+                next_url = EVENTS_URL
+    
+            response = requests.get(next_url, timeout=30)
+    
+            # Verificar que la respuesta sea válida
+            if response.status_code != 200 or not response.text.strip():
+                raise ValueError(f"Invalid response: status={response.status_code}")
+    
+            dict_actual = response.json()
+    
+        except (ValueError, requests.exceptions.JSONDecodeError) as e:
+            logger.warning(f"Pagination failed ({e}), restarting from initial URL.")
+            try:
+                response    = requests.get(EVENTS_URL, timeout=30)
+                dict_actual = response.json()
+            except Exception as restart_error:
+                logger.error(f"Failed to restart: {restart_error}. Retrying in 10s.")
+                import time
+                time.sleep(10)
+    
+        except requests.exceptions.ConnectionError:
+            logger.error("Connection lost. Retrying in 10s.")
+            import time
+            time.sleep(10)
 
 except requests.exceptions.ConnectionError:
     logger.error("Connection lost. Restart the pipeline to resume.")
